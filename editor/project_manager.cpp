@@ -143,24 +143,30 @@ private:
 	String _test_path() {
 		DirAccess *d = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 		String valid_path, valid_install_path;
+		bool foundPath = false;
+		valid_path = project_path->get_text().strip_edges();
 		if (d->change_dir(project_path->get_text()) == OK) {
-			valid_path = project_path->get_text();
+			//valid_path = project_path->get_text();
+			foundPath = true;
 		} else if (d->change_dir(project_path->get_text().strip_edges()) == OK) {
-			valid_path = project_path->get_text().strip_edges();
+			//valid_path = project_path->get_text().strip_edges();
+			foundPath = true;
 		} else if (project_path->get_text().ends_with(".zip")) {
 			if (d->file_exists(project_path->get_text())) {
-				valid_path = project_path->get_text();
+				//valid_path = project_path->get_text();
+				foundPath = true;
 			}
 		} else if (project_path->get_text().strip_edges().ends_with(".zip")) {
 			if (d->file_exists(project_path->get_text().strip_edges())) {
-				valid_path = project_path->get_text().strip_edges();
+				//valid_path = project_path->get_text().strip_edges();
+				foundPath = true;
 			}
 		}
 
-		if (valid_path == "") {
-			set_message(TTR("The path specified doesn't exist."), MESSAGE_ERROR);
+		if (!foundPath) {
+			set_message(TTR("Will try to create path."), MESSAGE_ERROR);
 			memdelete(d);
-			get_ok_button()->set_disabled(true);
+			get_ok_button()->set_disabled(false);
 			return "";
 		}
 
@@ -403,6 +409,25 @@ private:
 			}
 		}
 
+		//if (d->change_dir(project_path->get_text()) == OK) {
+		if (!d->dir_exists(project_path->get_text())) {
+			if (d->make_dir(project_path->get_text()) == OK) {
+				d->change_dir(project_path->get_text());
+				String dir_str = d->get_current_dir();
+				project_path->set_text(dir_str);
+				_path_text_changed(dir_str);
+				created_folder_path = d->get_current_dir();
+				create_dir->set_disabled(true);
+			} else {
+				dialog_error->set_text(TTR("Couldn't create folder."));
+				dialog_error->popup_centered();
+			}
+		} else {
+			dialog_error->set_text(TTR("There is already a folder in this path with the specified name."));
+			dialog_error->popup_centered();
+		}
+		//}
+
 		memdelete(d);
 	}
 
@@ -463,6 +488,10 @@ private:
 				if (mode == MODE_NEW) {
 					// Before we create a project, check that the target folder is empty.
 					// If not, we need to ask the user if they're sure they want to do this.
+					String dir2 = _test_path();
+					if (dir2 == "") {
+						_create_folder();
+					}
 					if (!is_folder_empty) {
 						ConfirmationDialog *cd = memnew(ConfirmationDialog);
 						cd->set_title(TTR("Warning: This folder is not empty"));
